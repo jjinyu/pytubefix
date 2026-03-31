@@ -275,6 +275,13 @@ def js_url(html: str) -> str:
         base_js = get_ytplayer_config(html)['assets']['js']
     except (KeyError, RegexMatchError):
         base_js = get_ytplayer_js(html)
+
+    broken_ids = ["6c5cb4f4", "44899b31", "7929661f", "74edf1a3"]
+    for bid in broken_ids:
+        if bid in base_js:
+            base_js = base_js.replace(bid, "9f4cc5e4")
+            break
+        
     return f"https://youtube.com{base_js}"
 
 
@@ -488,13 +495,18 @@ def apply_signature(stream_manifest: Dict, vid_info: Dict, js: str, url_js: str)
             logger.debug("signature found, skip decipher")
 
         else:
-            signature = cipher.get_sig(ciphered_signature=stream["s"])
-
-            logger.debug(
-                "finished descrambling signature for itag=%s", stream["itag"]
-            )
-
-            query_params['sig'] = signature
+            try:
+                signature = cipher.get_sig(ciphered_signature=stream["s"])
+                logger.debug(
+                    "finished descrambling signature for itag=%s", stream["itag"]
+                )
+                query_params['sig'] = signature
+            except Exception as e:
+                logger.warning(
+                    "failed to decipher signature for itag=%s, skipping. Error: %s",
+                    stream.get("itag", "unknown"), e
+                )
+            continue
 
         if 'n' in query_params.keys():
             # For WEB-based clients, YouTube sends an "n" parameter that throttles download speed.
